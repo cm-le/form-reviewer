@@ -79,8 +79,8 @@ class FormReviewer extends \ExternalModules\AbstractExternalModule {
     * Embed elements of source form into review form
     */
     private function embedSourceForm($index, $project_id, $record, $instrument, $event_id, $repeat_instance){
+	
 
-        //echo "<PRE>".print_r($this->settings)."</PRE>";
         echo "<link rel='stylesheet' href='".$this->getUrl("css/form_reviewer.css")."'>";
         
         //Get record number of the source form     
@@ -98,7 +98,7 @@ class FormReviewer extends \ExternalModules\AbstractExternalModule {
 
         //Embed an inline PDF of the source form
         if($this->settings[$index]["embed-pdf"] == "1"){
-            $this->embedPDF($index, $project_id, $instrument, $record_link, $event_link);
+            $this->embedPDF($index, $project_id, $instrument, $record_link, $event_link); 
         }
         
     }
@@ -187,9 +187,9 @@ class FormReviewer extends \ExternalModules\AbstractExternalModule {
     private function getLinkFieldValue($index, $project_id, $record, $event_id, $repeat_instance, $link_field_name){
         //Note that 1 is passed in for first instance even though the DB stores null
         $repeat_instance_clause = ($repeat_instance == 1 ? "instance is NULL" : "instance=$repeat_instance");
-        
+        $data_table = db_result(db_query("SELECT data_table from redcap_projects where project_id=$project_id"));
         $sql_link_field_value = "SELECT value ".
-                                "FROM redcap_data ".
+                                "FROM $data_table ".
                                 "WHERE project_id=$project_id ".
                                 "AND record='{$record}' AND event_id=$event_id ".
                                 "AND $repeat_instance_clause AND field_name='".db_escape($link_field_name)."'";
@@ -236,8 +236,10 @@ class FormReviewer extends \ExternalModules\AbstractExternalModule {
         $attach_tbl .= "<tr><th>File Attachment</th><th>Link</th></tr>";
         
         //Get the list of file upload fields to potentially create download links for
+        $data_table = db_result(db_query("SELECT data_table from redcap_projects where project_id=$project_id"));
+
         $sql_docs = "SELECT DISTINCT field_name ".
-                    "FROM redcap_data ".
+                    "FROM $data_table ".
                     "WHERE record='".db_escape($record_link)."' ".
                     "AND project_id='".db_escape($this->settings[$index]["source-project"])."' ".
                     "AND field_name IN ($field_name_clause)";
@@ -302,7 +304,6 @@ class FormReviewer extends \ExternalModules\AbstractExternalModule {
                 );
 
                 $output = curl_exec($ch);
-                //echo "<PRE>form_reviewer_headers=".print_r($form_reviewer_headers)."</PRE>";
                 $output_arr = json_decode($output,true);
 
                 //Log any API errors and also display them to the screen in a table
@@ -391,7 +392,6 @@ class FormReviewer extends \ExternalModules\AbstractExternalModule {
                              "AND api_export='1'";
             $this->settings[$index]["api-token"] = db_result(db_query($sql_api_token),0);
         }
-
         $data = array(
             'token' => $this->settings[$index]["api-token"],
             'content' => 'pdf',
@@ -400,6 +400,7 @@ class FormReviewer extends \ExternalModules\AbstractExternalModule {
             'event' => $event_link,
             'returnFormat' => 'json'
         );
+
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, APP_PATH_WEBROOT_FULL . "api" . DIRECTORY_SEPARATOR);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -411,6 +412,7 @@ class FormReviewer extends \ExternalModules\AbstractExternalModule {
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
         curl_setopt($ch, CURLOPT_FRESH_CONNECT, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data, '', '&'));
+
         $output = curl_exec($ch);
         $output_arr = json_decode($output,true);
 
